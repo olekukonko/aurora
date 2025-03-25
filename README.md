@@ -40,7 +40,8 @@ func main() {
 }
 ```
 
-![image](https://imgur.com/tQphObg "preview")
+#### Preview
+![image](https://imgur.com/tQphObg.png "preview")
 
 
 ### Contextual Logging
@@ -72,7 +73,8 @@ func main() {
 }
 ```
 
-![image](https://imgur.com/WzEocqw "preview")
+#### Preview
+![preview](https://imgur.com/WzEocqw.png)
 
 ### Advanced Usage
 
