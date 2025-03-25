@@ -2,6 +2,7 @@ package aurora
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -47,15 +48,17 @@ func TestNotifier_JSON(t *testing.T) {
 	var buf bytes.Buffer
 	n := New(&buf)
 
-	// Log a JSON object.
 	testData := map[string]interface{}{"key": "value"}
 	n.JSON("TestJSON", testData)
 
 	output := buf.String()
-	if !strings.Contains(output, "TestJSON: JSON") {
+	// Remove ANSI color codes for testing
+	cleanOutput := regexp.MustCompile(`\x1b\[[0-9;]*m`).ReplaceAllString(output, "")
+
+	if !strings.Contains(cleanOutput, "TestJSON: JSON") {
 		t.Errorf("expected output to contain JSON header, got %q", output)
 	}
-	if !strings.Contains(output, `"key":"value"`) {
+	if !strings.Contains(cleanOutput, `"key":"value"`) {
 		t.Errorf("expected output to contain JSON key-value, got %q", output)
 	}
 }

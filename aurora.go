@@ -3,9 +3,11 @@ package aurora
 import (
 	"fmt"
 	"github.com/fatih/color"
+	"github.com/mattes/go-asciibot"
 	"github.com/nwidger/jsoncolor"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"time"
 )
@@ -24,8 +26,8 @@ const (
 	CriticalLevel
 )
 
-// symbols maps each LogLevel to a specific symbol.
-var symbols = map[LogLevel]string{
+// Default symbols for each log level
+var defaultSymbols = map[LogLevel]string{
 	AlertLevel:    "[✭]",
 	InfoLevel:     "[✔]",
 	ErrorLevel:    "[✘]",
@@ -35,8 +37,8 @@ var symbols = map[LogLevel]string{
 	CriticalLevel: "[‼]",
 }
 
-// colors maps each LogLevel to a color function for terminal output.
-var colors = map[LogLevel]*color.Color{
+// Default colors for each log level
+var defaultColors = map[LogLevel]*color.Color{
 	AlertLevel:    color.New(color.FgHiBlue),
 	InfoLevel:     color.New(color.FgHiGreen),
 	ErrorLevel:    color.New(color.FgHiRed),
@@ -46,12 +48,56 @@ var colors = map[LogLevel]*color.Color{
 	CriticalLevel: color.New(color.FgHiWhite),
 }
 
-// Notifier is responsible for synchronized, level-aware, and colorized logging.
-// It optionally supports a prefix to add contextual information to each log message.
+// Package-level customization
+var (
+	symbols = make(map[LogLevel]string)
+	colors  = make(map[LogLevel]*color.Color)
+	mu      sync.RWMutex
+)
+
+func init() {
+	// Initialize with defaults
+	ResetSymbols()
+	ResetColors()
+}
+
+// SetSymbol sets a custom symbol for a specific log level
+func SetSymbol(level LogLevel, symbol string) {
+	mu.Lock()
+	defer mu.Unlock()
+	symbols[level] = symbol
+}
+
+// SetColor sets a custom color for a specific log level
+func SetColor(level LogLevel, color *color.Color) {
+	mu.Lock()
+	defer mu.Unlock()
+	colors[level] = color
+}
+
+// ResetSymbols resets all symbols to their default values
+func ResetSymbols() {
+	mu.Lock()
+	defer mu.Unlock()
+	for k, v := range defaultSymbols {
+		symbols[k] = v
+	}
+}
+
+// ResetColors resets all colors to their default values
+func ResetColors() {
+	mu.Lock()
+	defer mu.Unlock()
+	for k, v := range defaultColors {
+		colors[k] = v
+	}
+}
+
+// Notifier remains the same as before...
 type Notifier struct {
-	mu     *sync.Mutex // Pointer to a mutex for thread-safe writes.
-	output io.Writer   // Destination for log output.
-	prefix string      // Optional prefix to add context to log messages.
+	mu     *sync.Mutex
+	output io.Writer
+	prefix string
 }
 
 // New creates a new Notifier that writes to the given io.Writer.
@@ -133,6 +179,14 @@ func (n *Notifier) Printf(level LogLevel, format string, args ...any) {
 	colors[level].Fprint(n.output, line)
 }
 
+// Robot writes a plain log message without a timestamp or level symbol,
+// but it still prepends the prefix if set.
+func (n *Notifier) Robot(level LogLevel) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	colors[level].Fprint(n.output, fmt.Sprintf("%s\n", asciibot.Random()))
+}
+
 // JSON pretty-prints the provided values in JSON format with colorization,
 // preceded by a title line. Each value is printed on a separate line.
 func (n *Notifier) JSON(title string, values ...any) {
@@ -180,6 +234,12 @@ func (n *Notifier) Critical(f string, a ...any) { n.Inlinef(CriticalLevel, f, a.
 var Default = New(os.Stdout)
 
 // Global sugar functions for easier usage with the default Notifier.
+
+// Robot sends friendly robot
+func Robot(l LogLevel) { Default.Robot(l) }
+
+// Br sends line Break
+func Br(no int) { Default.Printf(InfoLevel, "%s", strings.Repeat("\n", no)) }
 
 // Alert logs a message at Alert level using the default Notifier.
 func Alert(f string, a ...any) { Default.Alert(f, a...) }
