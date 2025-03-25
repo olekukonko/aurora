@@ -40,6 +40,9 @@ func main() {
 }
 ```
 
+![image](https://imgur.com/tQphObg "preview")
+
+
 ### Contextual Logging
 
 ```go
@@ -69,6 +72,8 @@ func main() {
 }
 ```
 
+![image](https://imgur.com/WzEocqw "preview")
+
 ### Advanced Usage
 
 ```go
@@ -83,6 +88,7 @@ func main() {
 	// Custom logger with a buffer
 	var buf bytes.Buffer
 	logger := aurora.New(&buf)
+	logger.Robot(aurora.InfoLevel)
 
 	// Full log with timestamp
 	logger.Logf(aurora.NoticeLevel, "System check completed")
