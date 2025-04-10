@@ -13,98 +13,87 @@ import (
 )
 
 // LogLevel defines the severity of the log message.
+// It uses an integer type to allow comparison between levels.
+// Use the constants below to specify different log levels.
 type LogLevel int
 
-// Log level constants.
 const (
-	AlertLevel LogLevel = iota
+	IconSuccess = "✓" // Success icon used in Success/Failure methods
+	IconError   = "✗" // Error icon used in Success/Failure methods
+)
+
+// Log level constants in order of increasing severity
+// These define the available logging levels from least to most severe
+const (
+	DebugLevel LogLevel = iota
 	InfoLevel
-	ErrorLevel
 	NoticeLevel
-	DebugLevel
 	WarnLevel
+	ErrorLevel
+	AlertLevel
 	CriticalLevel
 	NoLevel
 )
 
 // Default symbols for each log level
+// These provide visual indicators for different log severities
 var defaultSymbols = map[LogLevel]string{
-	AlertLevel:    "[✭]",
-	InfoLevel:     "[✔]",
-	ErrorLevel:    "[✘]",
-	NoticeLevel:   "[⚑]",
-	DebugLevel:    "[⧳]",
-	WarnLevel:     "[⚠]",
-	CriticalLevel: "[‼]",
-	NoLevel:       " ",
+	AlertLevel:    "[✭]", // Alert symbol for attention-grabbing messages
+	InfoLevel:     "[✔]", // Info symbol for general information
+	ErrorLevel:    "[✘]", // Error symbol for error conditions
+	NoticeLevel:   "[⚑]", // Notice symbol for notable events
+	DebugLevel:    "[⧳]", // Debug symbol for debugging output
+	WarnLevel:     "[⚠]", // Warning symbol for potential issues
+	CriticalLevel: "[‼]", // Critical symbol for severe problems
+	NoLevel:       " ",   // No symbol for plain messages
 }
 
 // Default colors for each log level
+// These assign distinct colors to make log levels easily distinguishable
 var defaultColors = map[LogLevel]*color.Color{
-	AlertLevel:    color.New(color.FgHiBlue),
-	InfoLevel:     color.New(color.FgHiGreen),
-	ErrorLevel:    color.New(color.FgHiRed),
-	NoticeLevel:   color.New(color.FgHiYellow),
-	DebugLevel:    color.New(color.FgHiCyan),
-	WarnLevel:     color.New(color.FgHiMagenta),
-	CriticalLevel: color.New(color.FgHiWhite),
-	NoLevel:       color.New(color.FgHiBlack),
+	AlertLevel:    color.New(color.FgHiBlue),    // Blue for alerts stands out
+	InfoLevel:     color.New(color.FgHiGreen),   // Green for info indicates normalcy
+	ErrorLevel:    color.New(color.FgHiRed),     // Red for errors signals problems
+	NoticeLevel:   color.New(color.FgHiYellow),  // Yellow for notices draws attention
+	DebugLevel:    color.New(color.FgHiCyan),    // Cyan for debug aids developers
+	WarnLevel:     color.New(color.FgHiMagenta), // Magenta for warnings is distinct
+	CriticalLevel: color.New(color.FgHiWhite),   // White for critical is highly visible
+	NoLevel:       color.New(color.FgHiBlack),   // Gray for no level is unobtrusive
 }
 
 // Package-level customization
+// These variables allow global configuration of logging appearance
 var (
 	symbols = make(map[LogLevel]string)
 	colors  = make(map[LogLevel]*color.Color)
 	mu      sync.RWMutex
 )
 
+// Formater defines a custom formatting function signature
+// It allows users to specify their own formatting logic
+// that can be used with the Format method
+type Formater func(format string, a ...interface{}) string
+
+// Default is a global Notifier instance that writes to os.Stdout
+// It provides a convenient way to log without creating a new instance
+var Default = New(os.Stdout)
+
 func init() {
-	// Initialize with defaults
-	ResetSymbols()
-	ResetColors()
+	ResetSymbols() // Initialize symbols to default values
+	ResetColors()  // Initialize colors to default values
 }
 
-// SetSymbol sets a custom symbol for a specific log level
-func SetSymbol(level LogLevel, symbol string) {
-	mu.Lock()
-	defer mu.Unlock()
-	symbols[level] = symbol
-}
-
-// SetColor sets a custom color for a specific log level
-func SetColor(level LogLevel, color *color.Color) {
-	mu.Lock()
-	defer mu.Unlock()
-	colors[level] = color
-}
-
-// ResetSymbols resets all symbols to their default values
-func ResetSymbols() {
-	mu.Lock()
-	defer mu.Unlock()
-	for k, v := range defaultSymbols {
-		symbols[k] = v
-	}
-}
-
-// ResetColors resets all colors to their default values
-func ResetColors() {
-	mu.Lock()
-	defer mu.Unlock()
-	for k, v := range defaultColors {
-		colors[k] = v
-	}
-}
-
-// Notifier remains the same as before...
+// Notifier provides structured, colorful logging capabilities
+// It handles synchronization and output formatting
 type Notifier struct {
-	mu     *sync.Mutex
-	output io.Writer
-	prefix string
+	mu     *sync.Mutex // Protects concurrent access
+	output io.Writer   // Destination for log messages
+	prefix string      // Optional prefix for all messages
 }
 
-// New creates a new Notifier that writes to the given io.Writer.
-// If the writer is nil, os.Stdout is used.
+// New creates Notifier that writes to given io.Writer
+// Uses os.Stdout if writer is nil for convenience
+// Returns a pointer to the new Notifier instance
 func New(w io.Writer) *Notifier {
 	if w == nil {
 		w = os.Stdout
@@ -116,47 +105,83 @@ func New(w io.Writer) *Notifier {
 	}
 }
 
-// With returns a new Notifier that shares the same output and mutex,
-// but prepends the provided prefix to each log message. This enables
-// contextual or module-specific logging.
-func (n *Notifier) With(prefix string) *Notifier {
-	newPrefix := prefix
-	if n.prefix != "" {
-		newPrefix = fmt.Sprintf("%s %s", n.prefix, prefix)
-	}
-	return &Notifier{
-		mu:     n.mu, // Share the same mutex for synchronized writes.
-		output: n.output,
-		prefix: newPrefix,
-	}
-}
+// Alert logs a message at Alert level
+// Useful for important but non-critical notifications
+func (n *Notifier) Alert(f string, a ...any) { n.Inlinef(AlertLevel, f, a...) }
 
-// formatWithPrefix prepends the logger's prefix to the message if one is set.
-func (n *Notifier) formatWithPrefix(msg string) string {
-	if n.prefix != "" {
-		return fmt.Sprintf("[%s] %s", n.prefix, msg)
-	}
-	return msg
-}
+// Br inserts a single blank line in the output
+// Helps with visual separation of log entries
+func (n *Notifier) Br() { n.Line(1) }
 
-// Logf writes a formatted log line including a level symbol, a timestamp,
-// and a message. The message is colorized according to its log level and
-// includes any prefix set on the Notifier.
-func (n *Notifier) Logf(level LogLevel, format string, args ...any) {
+// Color writes a message with specific color, ignoring log level colors
+// Useful for special messages that need distinct coloring
+// Bypasses the default level-based coloring system
+func (n *Notifier) Color(c *color.Color, format string, args ...any) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-
-	timestamp := time.Now().Format("2006-01-02 03:04:05 PM")
-	symbol := symbols[level]
-	msg := fmt.Sprintf(format, args...)
-	msg = n.formatWithPrefix(msg)
-	line := fmt.Sprintf("%s %s %s\n", symbol, timestamp, msg)
-
-	colors[level].Fprint(n.output, line)
+	c.Fprint(n.output, fmt.Sprintf(format, args...))
 }
 
-// Inlinef writes a single-line log without a timestamp, useful for inline messages.
-// The log line will include the level symbol and any prefix.
+// Critical logs a message at Critical level
+// Used for severe issues requiring immediate attention
+func (n *Notifier) Critical(f string, a ...any) { n.Inlinef(CriticalLevel, f, a...) }
+
+// Debug logs a message at Debug level
+// Intended for developer-facing diagnostic information
+func (n *Notifier) Debug(f string, a ...any) { n.Inlinef(DebugLevel, f, a...) }
+
+// Error logs a message at Error level
+// Indicates problems that need attention
+func (n *Notifier) Error(f string, a ...any) { n.Inlinef(ErrorLevel, f, a...) }
+
+// Failure prints error message with red color and crossmark prefix
+// Provides consistent error message formatting across application
+// Uses the ErrorLevel for consistency
+func (n *Notifier) Failure(format string, args ...any) {
+	n.Inlinef(ErrorLevel, n.f(IconError, " ", format), args...)
+}
+
+// Format writes message using custom formatter function
+// Allows complete control over message formatting while maintaining
+// thread safety and output consistency through mutex locking
+func (n *Notifier) Format(formatter Formater, format string, args ...any) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	colors[NoLevel].Fprint(n.output, formatter(format, args...))
+}
+
+// Func executes function and writes output with specified log level color
+// The function is only called when actually writing to output
+// Useful for expensive computations that should only run when logged
+func (n *Notifier) Func(level LogLevel, fn func() string) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	colors[level].Fprint(n.output, fn())
+}
+
+// Highlight writes text with yellow background highlight
+// Excellent for drawing attention to important log messages
+// Uses a distinct background color for emphasis
+func (n *Notifier) Highlight(format string, args ...any) {
+	n.Color(color.New(color.BgYellow, color.FgBlack), format, args...)
+}
+
+// If conditionally logs message based on boolean condition
+// Simplifies conditional logging without cluttering code
+// Reduces need for external if statements
+func (n *Notifier) If(condition bool, level LogLevel, format string, args ...any) {
+	if condition {
+		n.Inlinef(level, format, args...)
+	}
+}
+
+// Info logs a message at Info level
+// Used for general operational information
+func (n *Notifier) Info(f string, a ...any) { n.Inlinef(InfoLevel, f, a...) }
+
+// Inlinef writes single-line log without timestamp
+// Ideal for compact output where timestamps aren't needed
+// Includes level symbol and color
 func (n *Notifier) Inlinef(level LogLevel, format string, args ...any) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
@@ -169,44 +194,9 @@ func (n *Notifier) Inlinef(level LogLevel, format string, args ...any) {
 	colors[level].Fprint(n.output, line)
 }
 
-// Printf writes a plain log message without a timestamp or level symbol,
-// but it still prepends the prefix if set.
-func (n *Notifier) Printf(level LogLevel, format string, args ...any) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-
-	msg := fmt.Sprintf(format, args...)
-	msg = n.formatWithPrefix(msg)
-	line := fmt.Sprintf("%s\n", msg)
-
-	colors[level].Fprint(n.output, line)
-}
-
-// Br inserts a single blank line into the output.
-// It does not include any timestamp or log level indicator,
-// but it includes the configured prefix if one is set.
-func (n *Notifier) Br() {
-	n.Line(1)
-}
-
-// Line inserts the specified number of blank lines into the output.
-// It omits timestamps and log level symbols, but includes the prefix if configured.
-func (n *Notifier) Line(count int) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	colors[NoLevel].Fprint(n.output, "%s", strings.Repeat("\n", count))
-}
-
-// Robot writes a plain log message without a timestamp or level symbol,
-// but it still prepends the prefix if set.
-func (n *Notifier) Robot(level LogLevel) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	colors[level].Fprint(n.output, fmt.Sprintf("%s\n", asciibot.Random()))
-}
-
-// JSON pretty-prints the provided values in JSON format with colorization,
-// preceded by a title line. Each value is printed on a separate line.
+// JSON pretty-prints values in colorized JSON format
+// Includes title line and proper formatting for each value
+// Useful for structured data logging
 func (n *Notifier) JSON(title string, values ...any) {
 	n.Inlinef(DebugLevel, "%s: JSON ↴↴", title)
 
@@ -225,72 +215,239 @@ func (n *Notifier) JSON(title string, values ...any) {
 	n.output.Write([]byte{'\n'})
 }
 
-// Convenience methods for logging at specific levels.
+// Line inserts specified number of blank lines
+// Useful for visually separating log sections
+// Helps organize output readability
+func (n *Notifier) Line(count int) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	colors[NoLevel].Fprint(n.output, fmt.Sprintf("%s", strings.Repeat("\n", count)))
+}
 
-// Alert logs a message at Alert level.
-func (n *Notifier) Alert(f string, a ...any) { n.Inlinef(AlertLevel, f, a...) }
+// Logf writes formatted log with timestamp and level symbol
+// Provides complete log message with all standard fields
+// Includes timestamp for temporal context
+func (n *Notifier) Logf(level LogLevel, format string, args ...any) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 
-// Info logs a message at Info level.
-func (n *Notifier) Info(f string, a ...any) { n.Inlinef(InfoLevel, f, a...) }
+	timestamp := time.Now().Format("2006-01-02 03:04:05 PM")
+	symbol := symbols[level]
+	msg := fmt.Sprintf(format, args...)
+	msg = n.formatWithPrefix(msg)
+	line := fmt.Sprintf("%s %s %s\n", symbol, timestamp, msg)
 
-// Error logs a message at Error level.
-func (n *Notifier) Error(f string, a ...any) { n.Inlinef(ErrorLevel, f, a...) }
+	colors[level].Fprint(n.output, line)
+}
 
-// Notice logs a message at Notice level.
+// Notice logs a message at Notice level
+// For events that should be noted but aren't problems
 func (n *Notifier) Notice(f string, a ...any) { n.Inlinef(NoticeLevel, f, a...) }
 
-// Debug logs a message at Debug level.
-func (n *Notifier) Debug(f string, a ...any) { n.Inlinef(DebugLevel, f, a...) }
+// Printf writes plain message without timestamp or symbol
+// Maintains prefix and color while being more minimal
+// Useful for simple formatted output
+func (n *Notifier) Printf(level LogLevel, format string, args ...any) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 
-// Warn logs a message at Warn level.
+	msg := fmt.Sprintf(format, args...)
+	msg = n.formatWithPrefix(msg)
+	line := fmt.Sprintf("%s\n", msg)
+
+	colors[level].Fprint(n.output, line)
+}
+
+// Robot displays random ASCII robot art
+// Adds fun visual element to console output
+// Makes logs more engaging
+func (n *Notifier) Robot(level LogLevel) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	colors[level].Fprint(n.output, fmt.Sprintf("%s\n", asciibot.Random()))
+}
+
+// Success prints success message with green color and checkmark
+// Standardized way to indicate successful operations
+// Uses InfoLevel for positive feedback
+func (n *Notifier) Success(format string, args ...any) {
+	n.Inlinef(InfoLevel, n.f(IconSuccess, " ", format), args...)
+}
+
+// Warn logs a message at Warn level
+// Indicates potential issues that aren't errors
 func (n *Notifier) Warn(f string, a ...any) { n.Inlinef(WarnLevel, f, a...) }
 
-// Critical logs a message at Critical level.
-func (n *Notifier) Critical(f string, a ...any) { n.Inlinef(CriticalLevel, f, a...) }
+// With creates new Notifier with additional prefix
+// Enables contextual logging with shared configuration
+// Maintains original Notifier's output and synchronization
+func (n *Notifier) With(prefix string) *Notifier {
+	newPrefix := prefix
+	if n.prefix != "" {
+		newPrefix = fmt.Sprintf("%s %s", n.prefix, prefix)
+	}
+	return &Notifier{
+		mu:     n.mu,
+		output: n.output,
+		prefix: newPrefix,
+	}
+}
 
-// Default is a global Notifier instance that writes to os.Stdout for convenience.
-var Default = New(os.Stdout)
+// formatWithPrefix adds the configured prefix to messages
+// Internal helper method for consistent prefix handling
+func (n *Notifier) formatWithPrefix(msg string) string {
+	if n.prefix != "" {
+		return fmt.Sprintf("[%s] %s", n.prefix, msg)
+	}
+	return msg
+}
 
-// Global sugar functions for easier usage with the default Notifier.
+// f concatenates multiple arguments into a single string
+// Internal helper for building formatted messages
+func (n *Notifier) f(args ...any) string {
+	s := strings.Builder{}
+	for _, arg := range args {
+		s.WriteString(fmt.Sprint(arg))
+	}
+	return s.String()
+}
 
-// Robot sends friendly robot
-func Robot(l LogLevel) { Default.Robot(l) }
-
-// Br sends line Break
-func Br(no int) { Default.Printf(InfoLevel, "%s", strings.Repeat("\n", no)) }
-
-// Alert logs a message at Alert level using the default Notifier.
+// Alert logs a message at Alert level using the default Notifier
+// Convenience function for quick alerting
 func Alert(f string, a ...any) { Default.Alert(f, a...) }
 
-// Info logs a message at Info level using the default Notifier.
-func Info(f string, a ...any) { Default.Info(f, a...) }
+// Br inserts a single blank line using the default Notifier
+// Shortcut for adding visual separation
+func Br() { Line(1) }
 
-// Error logs a message at Error level using the default Notifier.
-func Error(f string, a ...any) { Default.Error(f, a...) }
+// Color writes a message with specific color using default Notifier
+// Quick way to add custom-colored output
+func Color(c *color.Color, format string, args ...any) {
+	Default.Color(c, format, args...)
+}
 
-// Notice logs a message at Notice level using the default Notifier.
-func Notice(f string, a ...any) { Default.Notice(f, a...) }
-
-// Debug logs a message at Debug level using the default Notifier.
-func Debug(f string, a ...any) { Default.Debug(f, a...) }
-
-// Warn logs a message at Warn level using the default Notifier.
-func Warn(f string, a ...any) { Default.Warn(f, a...) }
-
-// Critical logs a message at Critical level using the default Notifier.
+// Critical logs a message at Critical level using default Notifier
+// Convenient access to critical logging
 func Critical(f string, a ...any) { Default.Critical(f, a...) }
 
-// JSON logs JSON formatted values with a title using the default Notifier.
-func JSON(t string, v ...any) { Default.JSON(t, v...) }
+// Debug logs a message at Debug level using default Notifier
+// Quick debugging output
+func Debug(f string, a ...any) { Default.Debug(f, a...) }
 
-// With returns a new Notifier with the given prefix.
-func With(prefix string) *Notifier { return Default.With(prefix) }
+// Error logs a message at Error level using default Notifier
+// Simple error reporting
+func Error(f string, a ...any) { Default.Error(f, a...) }
 
-// Printf writes a formatted message using the default Notifier.
-func Printf(level LogLevel, f string, a ...any) { Default.Printf(level, f, a...) }
+// Failure logs an error message with error icon using default Notifier
+// Standardized error formatting shortcut
+func Failure(format string, args ...any) {
+	Default.Failure(format, args...)
+}
 
-// Inlinef writes a single-line log without a timestamp, useful for inline messages.
+// Format uses custom formatter with default Notifier
+// Flexible formatting with default instance
+func Format(formatter Formater, format string, args ...any) {
+	Default.Format(formatter, format, args...)
+}
+
+// Func executes function and logs result with default Notifier
+// Lazy evaluation with default instance
+func Func(level LogLevel, fn func() string) {
+	Default.Func(level, fn)
+}
+
+// Highlight writes highlighted text using default Notifier
+// Quick attention-grabbing output
+func Highlight(format string, args ...any) {
+	Default.Highlight(format, args...)
+}
+
+// If conditionally logs message using default Notifier
+// Simplified conditional logging
+func If(condition bool, level LogLevel, format string, args ...any) {
+	Default.If(condition, level, format, args...)
+}
+
+// Info logs a message at Info level using default Notifier
+// Standard informational logging
+func Info(f string, a ...any) { Default.Info(f, a...) }
+
+// Inlinef writes single-line log without timestamp using default Notifier
+// Compact logging shortcut
 func Inlinef(level LogLevel, f string, a ...any) { Default.Inlinef(level, f, a...) }
 
-// Logf writes a formatted log line including a level symbol, a timestamp,
+// JSON logs JSON data with title using default Notifier
+// Structured data logging shortcut
+func JSON(t string, v ...any) { Default.JSON(t, v...) }
+
+// Line inserts blank lines using default Notifier
+// Visual separation utility
+func Line(no int) { Default.Line(no) }
+
+// Logf writes formatted log with timestamp using default Notifier
+// Full-featured logging shortcut
 func Logf(level LogLevel, f string, a ...any) { Default.Logf(level, f, a...) }
+
+// Notice logs a message at Notice level using default Notifier
+// Notable event reporting
+func Notice(f string, a ...any) { Default.Notice(f, a...) }
+
+// Printf writes plain message using default Notifier
+// Minimal formatted output
+func Printf(level LogLevel, f string, a ...any) { Default.Printf(level, f, a...) }
+
+// Robot displays ASCII robot using default Notifier
+// Fun visual addition
+func Robot(l LogLevel) { Default.Robot(l) }
+
+// Success logs success message with checkmark using default Notifier
+// Positive feedback shortcut
+func Success(format string, args ...any) {
+	Default.Success(format, args...)
+}
+
+// Warn logs a message at Warn level using default Notifier
+// Warning notification shortcut
+func Warn(f string, a ...any) { Default.Warn(f, a...) }
+
+// With creates new Notifier with prefix using default Notifier
+// Contextual logging setup
+func With(prefix string) *Notifier { return Default.With(prefix) }
+
+/* ========== Package Configuration ========== */
+
+// ResetColors resets all colors to their default values
+// Useful for restoring original color scheme
+func ResetColors() {
+	mu.Lock()
+	defer mu.Unlock()
+	for k, v := range defaultColors {
+		colors[k] = v
+	}
+}
+
+// ResetSymbols resets all symbols to their default values
+// Restores original symbol set
+func ResetSymbols() {
+	mu.Lock()
+	defer mu.Unlock()
+	for k, v := range defaultSymbols {
+		symbols[k] = v
+	}
+}
+
+// SetColor sets custom color for specific log level
+// Allows customization of level appearance
+func SetColor(level LogLevel, color *color.Color) {
+	mu.Lock()
+	defer mu.Unlock()
+	colors[level] = color
+}
+
+// SetSymbol sets custom symbol for specific log level
+// Enables custom visual indicators
+func SetSymbol(level LogLevel, symbol string) {
+	mu.Lock()
+	defer mu.Unlock()
+	symbols[level] = symbol
+}

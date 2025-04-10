@@ -2,8 +2,10 @@ package aurora
 
 import (
 	"bytes"
+	"github.com/fatih/color"
 	"regexp"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -72,5 +74,190 @@ func TestNotifier_Printf(t *testing.T) {
 	output := buf.String()
 	if !strings.Contains(output, "plain message test") {
 		t.Errorf("expected output to contain %q, got %q", "plain message test", output)
+	}
+}
+
+// TestInlinef tests basic Inlinef functionality with different levels
+func TestInlinef(t *testing.T) {
+	color.NoColor = true // Disable colors for predictable output
+	defer func() { color.NoColor = false }()
+
+	tests := []struct {
+		name       string
+		level      LogLevel
+		message    string
+		wantOutput string
+	}{
+		{
+			name:       "Info level",
+			level:      InfoLevel,
+			message:    "Info test",
+			wantOutput: "[✔] Info test\n",
+		},
+		{
+			name:       "Error level",
+			level:      ErrorLevel,
+			message:    "Error test",
+			wantOutput: "[✘] Error test\n",
+		},
+		{
+			name:       "Debug level",
+			level:      DebugLevel,
+			message:    "Debug test",
+			wantOutput: "[⧳] Debug test\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			n := New(&buf)
+
+			n.Inlinef(tt.level, tt.message)
+
+			got := buf.String()
+			if got != tt.wantOutput {
+				t.Errorf("Inlinef() = %q, want %q", got, tt.wantOutput)
+			}
+		})
+	}
+}
+
+// TestSuccess tests the Success method
+func TestSuccess(t *testing.T) {
+	color.NoColor = true
+	defer func() { color.NoColor = false }()
+
+	var buf bytes.Buffer
+	n := New(&buf)
+
+	n.Success("Operation completed")
+
+	output := buf.String()
+	if !strings.Contains(output, "✓ Operation completed") {
+		t.Errorf("Success() expected '✓ Operation completed', got: %q", output)
+	}
+}
+
+// TestFailure tests the Failure method
+func TestFailure(t *testing.T) {
+	color.NoColor = true
+	defer func() { color.NoColor = false }()
+
+	var buf bytes.Buffer
+	n := New(&buf)
+
+	n.Failure("Operation failed")
+
+	output := buf.String()
+	if !strings.Contains(output, "✗ Operation failed") {
+		t.Errorf("Failure() expected '✗ Operation failed', got: %q", output)
+	}
+}
+
+// TestWithPrefix tests the With method for prefixing
+func TestWithPrefix(t *testing.T) {
+	color.NoColor = true
+	defer func() { color.NoColor = false }()
+
+	var buf bytes.Buffer
+	n := New(&buf)
+	nWithPrefix := n.With("TEST")
+
+	nWithPrefix.Inlinef(InfoLevel, "Prefixed message")
+
+	output := buf.String()
+	if !strings.Contains(output, "[TEST] Prefixed message") {
+		t.Errorf("With() expected '[TEST] Prefixed message', got: %q", output)
+	}
+	if !strings.Contains(output, "[✔]") {
+		t.Errorf("With() expected Info symbol '[✔]', got: %q", output)
+	}
+}
+
+// TestConcurrentInlinef tests thread-safety of Inlinef
+func TestConcurrentInlinef(t *testing.T) {
+	color.NoColor = true
+	defer func() { color.NoColor = false }()
+
+	var buf bytes.Buffer
+	n := New(&buf)
+
+	var wg sync.WaitGroup
+	levels := []LogLevel{DebugLevel, InfoLevel, ErrorLevel}
+
+	for i, level := range levels {
+		wg.Add(1)
+		go func(lvl LogLevel, idx int) {
+			defer wg.Done()
+			n.Inlinef(lvl, "Message %d", idx)
+		}(level, i)
+	}
+
+	wg.Wait()
+
+	output := buf.String()
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	if len(lines) != len(levels) {
+		t.Errorf("Expected %d lines, got %d: %q", len(levels), len(lines), output)
+	}
+}
+
+// TestRobot tests the Robot method for ASCII art
+func TestRobot(t *testing.T) {
+	color.NoColor = true
+	defer func() { color.NoColor = false }()
+
+	var buf bytes.Buffer
+	n := New(&buf)
+
+	n.Robot(InfoLevel)
+
+	output := buf.String()
+	if output == "" {
+		t.Errorf("Robot() expected non-empty ASCII art, got empty string")
+	}
+	if !strings.Contains(output, "\n") {
+		t.Errorf("Robot() expected multi-line output, got: %q", output)
+	}
+}
+
+// TestJSON tests the JSON method
+// TestJSON tests the JSON method
+func TestJSON(t *testing.T) {
+	color.NoColor = true
+	defer func() { color.NoColor = false }()
+
+	var buf bytes.Buffer
+	n := New(&buf)
+
+	data := map[string]string{"key": "value"}
+	n.JSON("Test Data", data)
+
+	output := buf.String()
+	expectedPrefix := "[⧳] Test Data: JSON ↴↴\n"
+	expectedJSON := "{\"key\":\"value\"}\n\n"
+
+	if !strings.HasPrefix(output, expectedPrefix) {
+		t.Errorf("JSON() expected prefix %q, got: %q", expectedPrefix, output)
+	}
+	if !strings.Contains(output, expectedJSON) {
+		t.Errorf("JSON() expected marshaled data %q, got: %q", expectedJSON, output)
+	}
+}
+
+// TestDefaultNotifier tests the global Default notifier
+func TestDefaultNotifier(t *testing.T) {
+	color.NoColor = true
+	defer func() { color.NoColor = false }()
+
+	var buf bytes.Buffer
+	Default = New(&buf) // Override Default for testing
+
+	Info("Default test")
+
+	output := buf.String()
+	if !strings.Contains(output, "[✔] Default test") {
+		t.Errorf("Default Info() expected '[✔] Default test', got: %q", output)
 	}
 }
