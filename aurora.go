@@ -24,6 +24,7 @@ const (
 	DebugLevel
 	WarnLevel
 	CriticalLevel
+	NoLevel
 )
 
 // Default symbols for each log level
@@ -35,6 +36,7 @@ var defaultSymbols = map[LogLevel]string{
 	DebugLevel:    "[⧳]",
 	WarnLevel:     "[⚠]",
 	CriticalLevel: "[‼]",
+	NoLevel:       " ",
 }
 
 // Default colors for each log level
@@ -46,6 +48,7 @@ var defaultColors = map[LogLevel]*color.Color{
 	DebugLevel:    color.New(color.FgHiCyan),
 	WarnLevel:     color.New(color.FgHiMagenta),
 	CriticalLevel: color.New(color.FgHiWhite),
+	NoLevel:       color.New(color.FgHiBlack),
 }
 
 // Package-level customization
@@ -177,6 +180,21 @@ func (n *Notifier) Printf(level LogLevel, format string, args ...any) {
 	line := fmt.Sprintf("%s\n", msg)
 
 	colors[level].Fprint(n.output, line)
+}
+
+// Br inserts a single blank line into the output.
+// It does not include any timestamp or log level indicator,
+// but it includes the configured prefix if one is set.
+func (n *Notifier) Br() {
+	n.Line(1)
+}
+
+// Line inserts the specified number of blank lines into the output.
+// It omits timestamps and log level symbols, but includes the prefix if configured.
+func (n *Notifier) Line(count int) {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	colors[NoLevel].Fprint(n.output, "%s", strings.Repeat("\n", count))
 }
 
 // Robot writes a plain log message without a timestamp or level symbol,
