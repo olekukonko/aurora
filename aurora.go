@@ -22,6 +22,38 @@ const (
 	IconError   = "✗" // Error icon used in Success/Failure methods
 )
 
+// Indentation constants for consistent JSON formatting across the application.
+// These provide standardized ways to format JSON output while maintaining readability.
+const (
+	// IndentNone provides compact JSON output without any indentation or line breaks.
+	// Ideal for network transmission or minimal storage requirements.
+	IndentNone = ""
+
+	// IndentSpace uses a single space for indentation.
+	// Provides minimal readability improvement while keeping output compact.
+	IndentSpace = " "
+
+	// IndentSpace2 uses two spaces per indentation level (most common standard).
+	// Recommended for general use as it balances readability and compactness.
+	// Complies with many style guides including Google JSON Style Guide.
+	IndentSpace2 = "  "
+
+	// IndentSpace4 uses four spaces per indentation level.
+	// Provides clearer nesting visibility at the cost of more horizontal space.
+	// Used in some corporate coding standards.
+	IndentSpace4 = "    "
+
+	// IndentTab uses tab characters for indentation.
+	// Preferred by developers who use tab-based indentation in their editors.
+	// Note: Tab width varies across editors/viewers.
+	IndentTab = "\t"
+
+	// IndentDebug uses a visually distinct pattern (bullet + space).
+	// Particularly useful for debugging as it makes indentation levels very visible.
+	// Not recommended for production use.
+	IndentDebug = "• "
+)
+
 // Log level constants in order of increasing severity
 // These define the available logging levels from least to most severe
 const (
@@ -179,6 +211,43 @@ func (n *Notifier) If(condition bool, level LogLevel, format string, args ...any
 // Used for general operational information
 func (n *Notifier) Info(f string, a ...any) { n.Inlinef(InfoLevel, f, a...) }
 
+// JSON logs JSON data without title (no indentation)
+func (n *Notifier) JSON(values ...any) {
+	n.JSONIndent("", IndentNone, values...)
+}
+
+// JSONTitle logs JSON data with title (no indentation)
+func (n *Notifier) JSONTitle(title string, values ...any) {
+	n.JSONIndent(title, IndentNone, values...)
+}
+
+// JSONPretty logs JSON data with default indentation (2 spaces)
+func (n *Notifier) JSONPretty(title string, values ...any) {
+	n.JSONIndent(title, IndentSpace2, values...)
+}
+
+// JSONIndent logs JSON data with custom indentation
+func (n *Notifier) JSONIndent(title string, indent string, values ...any) {
+	if title != "" {
+		n.Inlinef(DebugLevel, "%s: JSON ↴↴", title)
+	}
+	n.mu.Lock()
+	defer n.mu.Unlock()
+
+	formatter := jsoncolor.NewFormatter()
+	formatter.Indent = indent
+	for _, v := range values {
+		data, err := jsoncolor.MarshalIndent(v, "", indent)
+		if err != nil {
+			n.Logf(ErrorLevel, "failed to marshal JSON: %v", err)
+			continue
+		}
+		n.output.Write(data)
+		n.output.Write([]byte{'\n'})
+	}
+	n.output.Write([]byte{'\n'})
+}
+
 // Inlinef writes single-line log without timestamp
 // Ideal for compact output where timestamps aren't needed
 // Includes level symbol and color
@@ -192,27 +261,6 @@ func (n *Notifier) Inlinef(level LogLevel, format string, args ...any) {
 	line := fmt.Sprintf("%s %s\n", symbol, msg)
 
 	colors[level].Fprint(n.output, line)
-}
-
-// JSON pretty-prints values in colorized JSON format
-// Includes title line and proper formatting for each value
-// Useful for structured data logging
-func (n *Notifier) JSON(title string, values ...any) {
-	n.Inlinef(DebugLevel, "%s: JSON ↴↴", title)
-
-	n.mu.Lock()
-	defer n.mu.Unlock()
-
-	for _, v := range values {
-		data, err := jsoncolor.Marshal(v)
-		if err != nil {
-			n.Logf(ErrorLevel, "failed to marshal JSON: %v", err)
-			continue
-		}
-		n.output.Write(data)
-		n.output.Write([]byte{'\n'})
-	}
-	n.output.Write([]byte{'\n'})
 }
 
 // Line inserts specified number of blank lines
@@ -384,9 +432,25 @@ func Info(f string, a ...any) { Default.Info(f, a...) }
 // Compact logging shortcut
 func Inlinef(level LogLevel, f string, a ...any) { Default.Inlinef(level, f, a...) }
 
-// JSON logs JSON data with title using default Notifier
-// Structured data logging shortcut
-func JSON(t string, v ...any) { Default.JSON(t, v...) }
+// JSON logs JSON data without title using default Notifier (no indentation)
+// Structured data logging shortcut for compact output
+func JSON(v ...any) { Default.JSON(v...) }
+
+// JSONTitle logs JSON data with title using default Notifier (no indentation)
+// Structured data logging with title for context
+func JSONTitle(title string, v ...any) { Default.JSONTitle(title, v...) }
+
+// JSONPretty logs JSON data with default indentation (2 spaces) using default Notifier
+// Pretty-printed output for human-readable logs
+func JSONPretty(title string, values ...any) {
+	Default.JSONPretty(title, values...)
+}
+
+// JSONIndent logs JSON data with custom indentation using default Notifier
+// Full control over indentation style
+func JSONIndent(title string, indent string, values ...any) {
+	Default.JSONIndent(title, indent, values...)
+}
 
 // Line inserts blank lines using default Notifier
 // Visual separation utility
