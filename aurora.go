@@ -244,6 +244,14 @@ func (n *Notifier) Logf(level LogLevel, format string, args ...any) {
 // For events that should be noted but aren't problems
 func (n *Notifier) Notice(f string, a ...any) { n.Inlinef(NoticeLevel, f, a...) }
 
+// Panic logs a message at Critical level and then panics with the same message
+// Used for unrecoverable errors that should halt program execution
+func (n *Notifier) Panic(f string, a ...any) {
+	msg := fmt.Sprintf(f, a...)
+	n.Inlinef(CriticalLevel, msg)
+	panic(msg)
+}
+
 // Printf writes plain message without timestamp or symbol
 // Maintains prefix and color while being more minimal
 // Useful for simple formatted output
@@ -395,6 +403,10 @@ func Notice(f string, a ...any) { Default.Notice(f, a...) }
 // Printf writes plain message using default Notifier
 // Minimal formatted output
 func Printf(level LogLevel, f string, a ...any) { Default.Printf(level, f, a...) }
+
+// Panic logs a message at Critical level using default Notifier and panics
+// Convenience function for critical errors that should stop execution
+func Panic(f string, a ...any) { Default.Panic(f, a...) }
 
 // Robot displays ASCII robot using default Notifier
 // Fun visual addition
