@@ -218,11 +218,6 @@ func (n *Notifier) JSON(values ...any) {
 
 // JSONTitle logs JSON data with title (no indentation)
 func (n *Notifier) JSONTitle(title string, values ...any) {
-	n.JSONIndent(title, IndentNone, values...)
-}
-
-// JSONPretty logs JSON data with default indentation (2 spaces)
-func (n *Notifier) JSONPretty(title string, values ...any) {
 	n.JSONIndent(title, IndentSpace2, values...)
 }
 
@@ -439,12 +434,6 @@ func JSON(v ...any) { Default.JSON(v...) }
 // JSONTitle logs JSON data with title using default Notifier (no indentation)
 // Structured data logging with title for context
 func JSONTitle(title string, v ...any) { Default.JSONTitle(title, v...) }
-
-// JSONPretty logs JSON data with default indentation (2 spaces) using default Notifier
-// Pretty-printed output for human-readable logs
-func JSONPretty(title string, values ...any) {
-	Default.JSONPretty(title, values...)
-}
 
 // JSONIndent logs JSON data with custom indentation using default Notifier
 // Full control over indentation style
