@@ -77,7 +77,7 @@ var defaultSymbols = map[LogLevel]string{
 	DebugLevel:    "[⧳]", // Debug symbol for debugging output
 	WarnLevel:     "[⚠]", // Warning symbol for potential issues
 	CriticalLevel: "[‼]", // Critical symbol for severe problems
-	NoLevel:       " ",   // No symbol for plain messages
+	NoLevel:       "",    // No symbol for plain messages
 }
 
 // Default colors for each log level
@@ -90,7 +90,7 @@ var defaultColors = map[LogLevel]*color.Color{
 	DebugLevel:    color.New(color.FgHiCyan),    // Cyan for debug aids developers
 	WarnLevel:     color.New(color.FgHiMagenta), // Magenta for warnings is distinct
 	CriticalLevel: color.New(color.FgHiWhite),   // White for critical is highly visible
-	NoLevel:       color.New(color.FgHiBlack),   // Gray for no level is unobtrusive
+	NoLevel:       nil,                          // Explicitly nil means "no color processing"
 }
 
 // Package-level customization
@@ -255,7 +255,12 @@ func (n *Notifier) Inlinef(level LogLevel, format string, args ...any) {
 	msg = n.formatWithPrefix(msg)
 	line := fmt.Sprintf("%s %s\n", symbol, msg)
 
-	colors[level].Fprint(n.output, line)
+	// Handle NoLevel specially (raw output)
+	if level == NoLevel {
+		fmt.Fprint(n.output, line) // No color processing
+	} else {
+		colors[level].Fprint(n.output, line)
+	}
 }
 
 // Line inserts specified number of blank lines
@@ -306,7 +311,11 @@ func (n *Notifier) Printf(level LogLevel, format string, args ...any) {
 	msg = n.formatWithPrefix(msg)
 	line := fmt.Sprintf("%s\n", msg)
 
-	colors[level].Fprint(n.output, line)
+	if level == NoLevel {
+		fmt.Fprint(n.output, line) // Raw output
+	} else {
+		colors[level].Fprint(n.output, line)
+	}
 }
 
 // Robot displays random ASCII robot art
