@@ -481,6 +481,9 @@ func Panic(f string, a ...any) { Default.Panic(f, a...) }
 // Fun visual addition
 func Robot(l LogLevel) { Default.Robot(l) }
 
+// RobotAscii just a simple helper
+func RobotAscii() string { return asciibot.Random() }
+
 // Success logs success message with checkmark using default Notifier
 // Positive feedback shortcut
 func Success(format string, args ...any) {
