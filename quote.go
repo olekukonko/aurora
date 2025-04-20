@@ -134,6 +134,6 @@ var quotes = []string{
 }
 
 func Quote() string {
-	randomIndex := rand.Intn(len(quotes))
+	randomIndex := rand.Intn(len(quotes) - 1)
 	return quotes[randomIndex]
 }

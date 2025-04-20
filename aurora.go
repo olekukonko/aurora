@@ -137,6 +137,13 @@ func New(w io.Writer) *Notifier {
 	}
 }
 
+// Output change default output
+// Returns the default Notifier instance
+func Output(w io.Writer) *Notifier {
+	Default.output = w
+	return Default
+}
+
 // Alert logs a message at Alert level
 // Useful for important but non-critical notifications
 func (n *Notifier) Alert(f string, a ...any) { n.Inlinef(AlertLevel, f, a...) }
