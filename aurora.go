@@ -269,7 +269,7 @@ func (n *Notifier) Inlinef(level LogLevel, format string, args ...any) {
 func (n *Notifier) Line(count int) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
-	colors[NoLevel].Fprint(n.output, fmt.Sprintf("%s", strings.Repeat("\n", count)))
+	fmt.Fprint(n.output, fmt.Sprintf("%s", strings.Repeat("\n", count)))
 }
 
 // Logf writes formatted log with timestamp and level symbol
