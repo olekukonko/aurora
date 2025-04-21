@@ -180,6 +180,14 @@ func (n *Notifier) Failure(format string, args ...any) {
 	n.Inlinef(ErrorLevel, n.f(IconError, " ", format), args...)
 }
 
+// Fatal prints error message with red color and cross mark prefix
+// Exists the application after logging the error
+// Useful for terminating the program with an error message
+func (n *Notifier) Fatal(format string, args ...any) {
+	n.Inlinef(ErrorLevel, n.f(IconError, " ", format), args...)
+	os.Exit(1)
+}
+
 // Format writes message using custom formatter function
 // Allows complete control over message formatting while maintaining
 // thread safety and output consistency through mutex locking
@@ -476,6 +484,10 @@ func Printf(level LogLevel, f string, a ...any) { Default.Printf(level, f, a...)
 // Panic logs a message at Critical level using default Notifier and panics
 // Convenience function for critical errors that should stop execution
 func Panic(f string, a ...any) { Default.Panic(f, a...) }
+
+// Fatal logs a message at Critical level using default Notifier and exits
+// Convenience function for critical errors that should stop execution
+func Fatal(f string, a ...any) { Default.Fatal(f, a...) }
 
 // Robot displays ASCII robot using default Notifier
 // Fun visual addition
